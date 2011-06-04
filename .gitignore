@@ -1,3 +1,4 @@
+*.pyc
 eatrack_db
 settings.py
 app/rest/tests.py
