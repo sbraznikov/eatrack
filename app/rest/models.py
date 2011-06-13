@@ -1,66 +1,41 @@
-from django.db import models
+import datetime
+from pymongo import Connection
+from bson import ObjectId
+from settings import MONGO_HOST, MONGO_PORT
 
 
-class Nutrients(models.Model):
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __unicode__(self):
-        return self.title
+connection = Connection(MONGO_HOST, MONGO_PORT)
+db = connection.eatracker
 
 
-class Category(models.Model):
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __unicode__(self):
-        return self.title
+def read_eatings():
+    return db.eating.find()
 
 
-class Ingredient(models.Model):
-    nutrients = models.ManyToManyField(Nutrients, blank=True)
-    categories = models.ManyToManyField(Category)
-    key = models.CharField(max_length=255, blank=True)
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    calorie = models.FloatField()
-    weight = models.FloatField()
-    created_at = models.DateTimeField(auto_now=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __unicode__(self):
-        return self.title
+def create_eating(data):
+    item = {'type': data.get('type'),
+            'dishes': data.getlist('dishes')}
+    if 'comment' in data:
+        item.update(comment=data.get('comment'))
+    if 'date' in data:
+        item.update(date=data.get('date'))
+    else:
+        item.update(date=datetime.datetime.utcnow())
+    return db.eating.insert(item)
 
 
-class Dish(models.Model):
-    ingredients = models.ManyToManyField(Ingredient)
-    key = models.CharField(max_length=255)
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now=True)
-    updated_at = models.DateTimeField(auto_now=True)
+def update_eating(data, id):
+    item = db.eating.find_one({'_id': ObjectId(id)})
+    if 'type' in data:
+        item.update(type=data.get('type'))
+    if 'comment' in data:
+        item.update(comment=data.get('comment'))
+    if 'date' in data:
+        item.update(date=data.get('date'))
+    if 'dishes' in data:
+        item.update(dishes=data.getlist('dishes'))
+    return db.eating.save(item)
 
-    def __unicode__(self):
-        return self.title
 
-
-class Eating(models.Model):
-    EATING_CHOICES = (
-        ('1', 'Fruehstueck'),
-        ('2', 'Mittagessen'),
-        ('3', 'Zwischenmahlzeit'),
-        ('4', 'Abendessen'),
-    )
-    eating_type = models.CharField(max_length=1, choices=EATING_CHOICES)
-    comment = models.TextField(blank=True)
-    dishes = models.ManyToManyField(Dish)
-    eating_at = models.DateTimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __unicode__(self):
-        return '%s: %s' % (self.eating_type, self.dishes)
+def remove_eating(id):
+    db.eating.remove({'_id': ObjectId(id)})
